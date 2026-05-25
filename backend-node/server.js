@@ -9,6 +9,19 @@ require('dotenv').config();
 const Detection = require('./models/Detection');
 const Settings = require('./models/Settings');
 
+// Helper to normalize the internal Python microservice URL
+const getPythonBackendUrl = () => {
+  let url = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `http://${url}`;
+  }
+  // Append standard port 5001 if it's the Render internal service name without port
+  if (url.includes('bird-deterrent-python-ai') && !url.includes(':5001')) {
+    url = `${url}:5001`;
+  }
+  return url;
+};
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -64,12 +77,13 @@ app.post('/settings', async (req, res) => {
     await config.save();
     
     // Synchronize settings with Python AI microservice in background
-    axios.post(`${process.env.PYTHON_BACKEND_URL}/sync-settings`, {
+    const pythonUrl = getPythonBackendUrl();
+    axios.post(`${pythonUrl}/sync-settings`, {
       esp32_ip: config.esp32_ip,
       trigger_confidence: config.trigger_confidence,
       yolo_conf_threshold: config.yolo_conf_threshold
     }, { timeout: 2000 }).catch(() => {
-      console.log(`[${new Date().toISOString()}] [Settings] Skipping Python sync (microservice port closed or offline)`);
+      console.log(`[${new Date().toISOString()}] [Settings] Skipping Python sync (microservice offline at ${pythonUrl})`);
     });
 
     res.json({ status: 'success', config });
@@ -100,9 +114,10 @@ app.post('/detect', upload.single('image'), async (req, res) => {
     form.append('esp32_ip', config.esp32_ip);
 
     // Call Python YOLO microservice
-    console.log(`[${new Date().toISOString()}] [AI Pipeline] Forwarding image frame to YOLO microservice...`);
+    const pythonUrl = getPythonBackendUrl();
+    console.log(`[${new Date().toISOString()}] [AI Pipeline] Forwarding image frame to YOLO microservice at ${pythonUrl}/detect_process...`);
     const pythonResponse = await axios.post(
-      `${process.env.PYTHON_BACKEND_URL}/detect_process`,
+      `${pythonUrl}/detect_process`,
       form,
       {
         headers: {
