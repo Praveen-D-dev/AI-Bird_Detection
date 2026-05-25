@@ -31,9 +31,8 @@ services:
         value: 5001
 
   # 3. React SPA Frontend (Static Site)
-  - type: web
+  - type: static
     name: bird-deterrent-frontend
-    env: static
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
