@@ -29,6 +29,8 @@ services:
     envVars:
       - key: PORT
         value: 5001
+      - key: PYTHON_VERSION
+        value: 3.10.13
 
   # 3. React SPA Frontend (Static Site)
   - type: web
