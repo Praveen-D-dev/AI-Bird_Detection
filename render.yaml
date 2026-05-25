@@ -31,12 +31,13 @@ services:
         value: 5001
 
   # 3. React SPA Frontend (Static Site)
-  - type: static
+  - type: web
     name: bird-deterrent-frontend
+    env: static
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishDir: dist
+    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         fromService:
