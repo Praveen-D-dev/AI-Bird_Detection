@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from ultralytics import YOLO
 import cv2
 import numpy as np
 import os
@@ -20,9 +19,19 @@ ESP32_IP = "192.168.1.100"
 # Path to model files (Check parent directory or current directory)
 YOLO_MODEL_PATH = '../yolov8m.pt' if os.path.exists('../yolov8m.pt') else 'yolov8m.pt'
 
-# Load YOLO model in-memory
-print(f"Loading YOLO model from {YOLO_MODEL_PATH}...")
-yolo_model = YOLO(YOLO_MODEL_PATH)
+# Lazy loading variables to prevent port scan timeouts on Render
+yolo_model = None
+yolo_model_lock = threading.Lock()
+
+def get_yolo_model():
+    global yolo_model
+    if yolo_model is None:
+        with yolo_model_lock:
+            if yolo_model is None:
+                from ultralytics import YOLO
+                print(f"Loading YOLO model from {YOLO_MODEL_PATH} (Lazy Loading)...")
+                yolo_model = YOLO(YOLO_MODEL_PATH)
+    return yolo_model
 
 def to_base64(img):
     """Encodes OpenCV image array to base64 JPEG data URI in-memory"""
@@ -88,9 +97,9 @@ def detect_process():
         
         processed_b64 = to_base64(img_processed)
         
-        # 4. Model Inference
+        # 4. Model Inference (lazy loads the model on the first request)
         start_time = time.time()
-        results = yolo_model(img_processed, conf=yolo_conf)
+        results = get_yolo_model()(img_processed, conf=yolo_conf)
         inference_time_ms = int((time.time() - start_time) * 1000)
         
         # 5. Drawing Bounding Boxes
