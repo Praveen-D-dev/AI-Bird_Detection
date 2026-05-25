@@ -2,18 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Container, Row, Col, Card, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { UploadCloud, CheckCircle, XCircle } from 'lucide-react';
 import axios from 'axios';
+import { getApiUrl } from '../utils/api';
 
-// Dynamic API base URL resolver based on browser URL (for loopback vs local LAN network debugging)
-const getApiUrl = (path) => {
-  const hostname = window.location.hostname;
-  if (import.meta.env.VITE_API_URL) {
-    return `${import.meta.env.VITE_API_URL}${path}`;
-  }
-  const base = (hostname === 'localhost' || hostname === '127.0.0.1')
-    ? 'http://localhost:5000'
-    : `http://${hostname}:5000`;
-  return `${base}${path}`;
-};
 
 function ManualTesting() {
   const [selectedFile, setSelectedFile] = useState(null);

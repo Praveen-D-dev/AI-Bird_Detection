@@ -2,18 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Spinner } from 'react-bootstrap';
 import axios from 'axios';
 import { Image as ImageIcon, Cpu, Sparkles, Eye } from 'lucide-react';
+import { getApiUrl } from '../utils/api';
 
-// Dynamic API base URL resolver based on browser URL (for loopback vs local LAN network debugging)
-const getApiUrl = (path) => {
-  const hostname = window.location.hostname;
-  if (import.meta.env.VITE_API_URL) {
-    return `${import.meta.env.VITE_API_URL}${path}`;
-  }
-  const base = (hostname === 'localhost' || hostname === '127.0.0.1')
-    ? 'http://localhost:5000'
-    : `http://${hostname}:5000`;
-  return `${base}${path}`;
-};
 
 function LiveImages() {
   const [images, setImages] = useState({ latest_raw: null, latest_processed: null, latest_detected: null });

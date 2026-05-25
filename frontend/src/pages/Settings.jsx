@@ -2,18 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { Settings as SettingsIcon, Save, RefreshCw } from 'lucide-react';
 import axios from 'axios';
+import { getApiUrl } from '../utils/api';
 
-// Dynamic API base URL resolver based on browser URL (for loopback vs local LAN network debugging)
-const getApiUrl = (path) => {
-  const hostname = window.location.hostname;
-  if (import.meta.env.VITE_API_URL) {
-    return `${import.meta.env.VITE_API_URL}${path}`;
-  }
-  const base = (hostname === 'localhost' || hostname === '127.0.0.1')
-    ? 'http://localhost:5000'
-    : `http://${hostname}:5000`;
-  return `${base}${path}`;
-};
 
 function Settings() {
   const [config, setConfig] = useState({
