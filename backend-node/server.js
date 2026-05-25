@@ -12,14 +12,33 @@ const Settings = require('./models/Settings');
 // Helper to normalize the internal Python microservice URL
 const getPythonBackendUrl = () => {
   let url = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+  url = url.trim();
+
+  // 1. If it's a public Render URL (contains onrender.com)
+  if (url.includes('onrender.com')) {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = `https://${url}`;
+    }
+    // Remove any trailing slash and do NOT append any port
+    return url.replace(/\/+$/, '');
+  }
+
+  // 2. For local or internal URLs
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = `http://${url}`;
   }
-  // Append standard port 5001 if it's the Render internal service name without port
-  if (url.includes('bird-deterrent-python-ai') && !url.includes(':5001')) {
-    url = `${url}:5001`;
+  
+  // Only append port 5001 if it's localhost/127.0.0.1 or bird-deterrent-python-ai and has no port
+  const hasPort = url.match(/:\d+$/);
+  if (!hasPort) {
+    if (url.includes('localhost') || url.includes('127.0.0.1')) {
+      url = `${url}:5001`;
+    } else if (url.includes('bird-deterrent-python-ai')) {
+      url = `${url}:5001`;
+    }
   }
-  return url;
+
+  return url.replace(/\/+$/, '');
 };
 
 const app = express();
@@ -162,8 +181,24 @@ app.post('/detect', upload.single('image'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] [AI Pipeline] Pipeline error:`, error.message);
-    res.status(500).json({ error: `AI pipeline error: ${error.message}` });
+    console.error(`[${new Date().toISOString()}] [AI Pipeline] Pipeline error details:`);
+    if (error.response) {
+      console.error(`Status: ${error.response.status}`);
+      console.error('Data:', error.response.data);
+    } else if (error.request) {
+      console.error('No response received from Python AI service. Request URL:', error.config ? error.config.url : 'Unknown');
+      console.error('Error message:', error.message);
+    } else {
+      console.error('Error during request setup:', error.message);
+    }
+    if (error.stack) {
+      console.error(error.stack);
+    }
+    
+    const statusMsg = error.response && error.response.data && error.response.data.error
+      ? error.response.data.error
+      : error.message;
+    res.status(500).json({ error: `AI pipeline error: ${statusMsg}` });
   }
 });
 
