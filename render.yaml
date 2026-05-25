@@ -1,0 +1,46 @@
+services:
+  # 1. MERN Stack Express Backend (Node.js)
+  - type: web
+    name: bird-deterrent-node-backend
+    env: node
+    plan: free
+    rootDir: backend-node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false # Set manually in Render Dashboard using your Atlas URI
+      - key: PYTHON_BACKEND_URL
+        fromService:
+          type: web
+          name: bird-deterrent-python-ai
+          property: host
+
+  # 2. Python YOLO AI Inference Microservice
+  - type: web
+    name: bird-deterrent-python-ai
+    env: python
+    plan: free # Note: Free tier has 512MB RAM. If loading YOLOv8m causes OOM, upgrade to 'starter' plan or use YOLOv8n.
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 1 --timeout 180
+    envVars:
+      - key: PORT
+        value: 5001
+
+  # 3. React SPA Frontend (Static Site)
+  - type: web
+    name: bird-deterrent-frontend
+    env: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: bird-deterrent-node-backend
+          property: host
