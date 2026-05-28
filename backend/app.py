@@ -17,7 +17,7 @@ YOLO_CONF_THRESHOLD = 0.25
 ESP32_IP = "192.168.1.100"
 
 # Path to model files (Check parent directory or current directory)
-YOLO_MODEL_PATH = '../yolov8n.pt' if os.path.exists('../yolov8n.pt') else 'yolov8n.pt'
+YOLO_MODEL_PATH = '../yolov8s.pt' if os.path.exists('../yolov8s.pt') else 'yolov8s.pt'
 
 # Lazy loading variables to prevent port scan timeouts on Render
 yolo_model = None
