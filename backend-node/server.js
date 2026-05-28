@@ -18,6 +18,11 @@ const getPythonBackendUrl = () => {
   let url = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
   url = url.trim();
 
+  // Auto-fix Render service names that lack the public domain
+  if (!url.includes('.') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+    url = `${url}.onrender.com`;
+  }
+
   // 1. If it's a public Render URL (contains onrender.com)
   if (url.includes('onrender.com')) {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -32,14 +37,10 @@ const getPythonBackendUrl = () => {
     url = `http://${url}`;
   }
   
-  // Only append port 5001 if it's localhost/127.0.0.1 or bird-deterrent-python-ai and has no port
+  // Only append port 5001 if it's localhost/127.0.0.1 and has no port
   const hasPort = url.match(/:\d+$/);
-  if (!hasPort) {
-    if (url.includes('localhost') || url.includes('127.0.0.1')) {
-      url = `${url}:5001`;
-    } else if (url.includes('bird-deterrent-python-ai')) {
-      url = `${url}:5001`;
-    }
+  if (!hasPort && (url.includes('localhost') || url.includes('127.0.0.1'))) {
+    url = `${url}:5001`;
   }
 
   return url.replace(/\/+$/, '');
