@@ -39,9 +39,3 @@ services:
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: bird-deterrent-node-backend
-          property: host
