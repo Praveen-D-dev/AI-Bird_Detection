@@ -16,7 +16,7 @@ services:
         fromService:
           type: web
           name: bird-deterrent-python-ai
-          property: url
+          property: host
 
   # 2. Python YOLO AI Inference Microservice
   - type: web
