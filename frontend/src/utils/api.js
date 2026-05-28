@@ -13,6 +13,11 @@ export const getApiUrl = (path) => {
   if (import.meta.env.VITE_API_URL) {
     let envUrl = import.meta.env.VITE_API_URL.trim();
     
+    // Auto-fix: if the URL is just an internal service name (no dots), append the Render domain
+    if (!envUrl.includes('.') && envUrl.length > 0 && !envUrl.includes('localhost')) {
+      envUrl = `${envUrl}.onrender.com`;
+    }
+    
     // 1. Check if the environment variable doesn't start with http:// or https://
     if (!/^https?:\/\//i.test(envUrl)) {
       // If it looks like a local address, use http, otherwise match the site's protocol (or force https if not local)
