@@ -9,6 +9,10 @@ require('dotenv').config();
 const Detection = require('./models/Detection');
 const Settings = require('./models/Settings');
 
+const http = require('http');
+const WebSocket = require('ws');
+const cloudinary = require('cloudinary').v2;
+
 // Helper to normalize the internal Python microservice URL
 const getPythonBackendUrl = () => {
   let url = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
@@ -42,7 +46,42 @@ const getPythonBackendUrl = () => {
 };
 
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 5000;
+
+// WebSocket connection handling
+wss.on('connection', (ws) => {
+  console.log(`[${new Date().toISOString()}] [WebSocket] New client connected`);
+  ws.on('close', () => {
+    console.log(`[${new Date().toISOString()}] [WebSocket] Client disconnected`);
+  });
+});
+
+// Broadcast trigger logic
+const triggerDeterrent = async (espIp, triggerConf, confidence) => {
+  let wsTriggered = false;
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ event: 'trigger', confidence }));
+      wsTriggered = true;
+    }
+  });
+
+  if (wsTriggered) {
+    console.log(`[${new Date().toISOString()}] [Deterrent] Triggered via WebSocket broadcast (Conf: ${confidence})`);
+    return;
+  }
+
+  // Fallback to local HTTP trigger if running locally
+  const isLocalEnv = !process.env.PORT || process.env.PYTHON_BACKEND_URL?.includes('localhost') || process.env.PYTHON_BACKEND_URL?.includes('127.0.0.1');
+  if (isLocalEnv && espIp && espIp !== '192.168.1.100') {
+    console.log(`[${new Date().toISOString()}] [Deterrent] No WS clients, trying HTTP trigger fallback at http://${espIp}/trigger`);
+    axios.get(`http://${espIp}/trigger`, { timeout: 2000 }).catch(err => {
+      console.log(`[${new Date().toISOString()}] [Deterrent] HTTP trigger fallback failed: ${err.message}`);
+    });
+  }
+};
 
 // Middleware (use high limits for base64 payload handling)
 app.use(cors());
@@ -149,6 +188,28 @@ app.post('/detect', upload.single('image'), async (req, res) => {
 
     const result = pythonResponse.data;
 
+    // --- HYBRID CLOUD UPLOAD LOGIC ---
+    let rawImgData = result.raw_base64;
+    let procImgData = result.processed_base64;
+    let detImgData = result.detected_base64;
+
+    if (process.env.CLOUDINARY_URL) {
+      console.log(`[${new Date().toISOString()}] [Cloudinary] Uploading processed frames to cloud...`);
+      try {
+        const uploadOpts = { folder: 'bird_deterrent', resource_type: 'image' };
+        const [rawUpload, procUpload, detUpload] = await Promise.all([
+          rawImgData ? cloudinary.uploader.upload(rawImgData, uploadOpts) : Promise.resolve(null),
+          procImgData ? cloudinary.uploader.upload(procImgData, uploadOpts) : Promise.resolve(null),
+          detImgData ? cloudinary.uploader.upload(detImgData, uploadOpts) : Promise.resolve(null),
+        ]);
+        rawImgData = rawUpload ? rawUpload.secure_url : null;
+        procImgData = procUpload ? procUpload.secure_url : null;
+        detImgData = detUpload ? detUpload.secure_url : null;
+      } catch (uploadErr) {
+        console.error(`[${new Date().toISOString()}] [Cloudinary] Error uploading, falling back to base64:`, uploadErr);
+      }
+    }
+
     // Save detection event to MongoDB Atlas
     const newDetection = new Detection({
       event: result.event,
@@ -156,13 +217,18 @@ app.post('/detect', upload.single('image'), async (req, res) => {
       confidence: result.confidence,
       status: result.status,
       inference_time_ms: result.inference_time_ms,
-      rawImage: result.raw_base64,
-      processedImage: result.processed_base64,
-      detectedImage: result.detected_base64
+      rawImage: rawImgData,
+      processedImage: procImgData,
+      detectedImage: detImgData
     });
 
     await newDetection.save();
     console.log(`[${new Date().toISOString()}] [AI Pipeline] Event saved to MongoDB. Status: ${result.status} | Inference: ${result.inference_time_ms}ms`);
+
+    // Check trigger threshold and activate deterrent if needed
+    if (result.event === 'bird' && result.confidence >= config.trigger_confidence) {
+      triggerDeterrent(config.esp32_ip, config.trigger_confidence, result.confidence);
+    }
 
     // Asynchronously clean up expired records to maximize response speed
     const cleanupLimitDays = config.cleanup_age_days || 7;
@@ -272,18 +338,30 @@ app.get('/status', async (req, res) => {
 app.get('/images-list', async (req, res) => {
   try {
     const latest = await Detection.findOne().sort({ timestamp: -1 });
-    
-    const hasRaw = latest && latest.rawImage;
-    const hasProcessed = latest && latest.processedImage;
-    const hasDetected = latest && latest.detectedImage;
+    if (!latest) {
+      return res.json({
+        latest_upload: null,
+        latest_raw: null,
+        latest_processed: null,
+        latest_detected: null,
+        recent_crops: []
+      });
+    }
 
-    const t = Date.now();
+    const getImgUrl = (imgField, defaultFilename) => {
+      if (!imgField) return null;
+      if (imgField.startsWith('http://') || imgField.startsWith('https://')) {
+        return imgField;
+      }
+      return `/uploads/${defaultFilename}?t=${Date.now()}`;
+    };
+
     res.json({
-      latest_upload: hasDetected ? `/uploads/latest_detected.jpg?t=${t}` : null,
-      latest_raw: hasRaw ? `/uploads/latest_raw.jpg?t=${t}` : null,
-      latest_processed: hasProcessed ? `/uploads/latest_processed.jpg?t=${t}` : null,
-      latest_detected: hasDetected ? `/uploads/latest_detected.jpg?t=${t}` : null,
-      recent_crops: [] // Handled in-memory on DB now
+      latest_upload: getImgUrl(latest.detectedImage, 'latest_detected.jpg'),
+      latest_raw: getImgUrl(latest.rawImage, 'latest_raw.jpg'),
+      latest_processed: getImgUrl(latest.processedImage, 'latest_processed.jpg'),
+      latest_detected: getImgUrl(latest.detectedImage, 'latest_detected.jpg'),
+      recent_crops: []
     });
   } catch (error) {
     console.error('Error fetching images list:', error);
@@ -307,20 +385,25 @@ app.get('/uploads/:filename', async (req, res) => {
       return res.status(404).send('No images found in database');
     }
 
-    let base64String = null;
+    let imgData = null;
     if (filename.includes('raw')) {
-      base64String = latestDetection.rawImage;
+      imgData = latestDetection.rawImage;
     } else if (filename.includes('processed')) {
-      base64String = latestDetection.processedImage;
+      imgData = latestDetection.processedImage;
     } else if (filename.includes('detected')) {
-      base64String = latestDetection.detectedImage;
+      imgData = latestDetection.detectedImage;
     }
 
-    if (!base64String) {
+    if (!imgData) {
       return res.status(404).send('Image file not found for this type');
     }
 
-    const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    // If it's a Cloudinary URL, perform a 302 redirect
+    if (imgData.startsWith('http://') || imgData.startsWith('https://')) {
+      return res.redirect(imgData);
+    }
+
+    const matches = imgData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       return res.status(400).send('Corrupted image encoding in database');
     }
@@ -342,6 +425,6 @@ app.get('/health', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[${new Date().toISOString()}] [Express] MERN Server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[${new Date().toISOString()}] [Express] MERN Server running on port ${PORT} (HTTP + WS)`);
 });

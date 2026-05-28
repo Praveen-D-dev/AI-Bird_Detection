@@ -5,6 +5,7 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include <WebServer.h>
+#include <WebSocketsClient.h> // Make sure to install WebSockets by Links2004
 
 // ================= WIFI CONFIG =================
 const char* ssid = "YOUR_WIFI_SSID";
@@ -15,6 +16,15 @@ const char* password = "YOUR_WIFI_PASSWORD";
 // For cloud: "https://your-express-app.onrender.com/detect"
 // For local testing: "http://192.168.1.50:5000/detect"
 const char* serverUrl = "http://192.168.1.50:5000/detect";
+
+// WebSocket config (extract domain/IP and port from your server URL)
+// For cloud: "your-express-app.onrender.com", 80 (or 443 for wss)
+// For local testing: "192.168.1.50", 5000
+const char* wsHost = "192.168.1.50";
+const int wsPort = 5000;
+const char* wsPath = "/";
+
+WebSocketsClient webSocket;
 
 // ================= PINS CONFIG =================
 // Using GPIO 12 for the speaker/buzzer (available on most ESP32-CAMs when not using SD card in 4-bit mode)
@@ -56,6 +66,26 @@ void playDeterrentSound() {
   noTone(SPEAKER_PIN);
 }
 
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_DISCONNECTED:
+      Serial.println("[WS] Disconnected!");
+      break;
+    case WStype_CONNECTED:
+      Serial.println("[WS] Connected to Server!");
+      break;
+    case WStype_TEXT: {
+      String msg = String((char*)payload);
+      Serial.println("[WS] Received: " + msg);
+      if (msg.indexOf("\"trigger\"") > 0 || msg.indexOf("trigger") >= 0) {
+        Serial.println("[WS] Trigger command received via WebSocket! Activating deterrent.");
+        playDeterrentSound();
+      }
+      break;
+    }
+  }
+}
+
 void handleTrigger() {
   server.send(200, "text/plain", "Trigger received. Activating deterrent.");
   playDeterrentSound();
@@ -82,6 +112,12 @@ void setup() {
   server.on("/trigger", handleTrigger);
   server.begin();
   Serial.println("Trigger server started.");
+
+  // Start WebSocket client
+  webSocket.begin(wsHost, wsPort, wsPath);
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(5000);
+  Serial.println("WebSocket client started.");
 
   // Camera init
   camera_config_t config;
@@ -119,6 +155,9 @@ void setup() {
 void loop() {
   // Handle incoming HTTP requests for /trigger
   server.handleClient();
+  
+  // Maintain WebSocket connection
+  webSocket.loop();
 
   if (millis() - lastCapture > interval) {
     lastCapture = millis();

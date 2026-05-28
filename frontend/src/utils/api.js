@@ -1,5 +1,10 @@
 // Dynamic API base URL resolver with automatic protocol correction and self-healing fallback
 export const getApiUrl = (path) => {
+  if (!path) return '';
+  // Pass-through for full absolute URLs (e.g. Cloudinary)
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
   const hostname = window.location.hostname;
   const protocol = window.location.protocol; // 'http:' or 'https:'
   
