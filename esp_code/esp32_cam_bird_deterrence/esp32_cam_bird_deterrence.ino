@@ -55,14 +55,17 @@ int interval = 5000; // Capture every 5 seconds
 WebServer server(80);
 
 void playDeterrentSound() {
-  Serial.println(">>> ACTIVATING DETERRENT SYSTEM <<<");
-  // Simple beep logic for a buzzer
-  tone(SPEAKER_PIN, 2000); 
-  delay(500);
-  noTone(SPEAKER_PIN);
-  delay(100);
-  tone(SPEAKER_PIN, 2000);
-  delay(500);
+  Serial.println(">>> ACTIVATING DETERRENT SYSTEM (FIRECRACKER BURST) <<<");
+  
+  // Simulate a machine gun / firecracker burst using randomized white noise frequencies
+  for (int burst = 0; burst < 6; burst++) { // 6 rapid shots
+    for (int i = 0; i < 15; i++) {
+      tone(SPEAKER_PIN, random(200, 2500)); // Random crackling frequency
+      delay(random(2, 8)); // Random short duration for noise effect
+    }
+    noTone(SPEAKER_PIN);
+    delay(random(60, 100)); // Pause between individual "shots"
+  }
   noTone(SPEAKER_PIN);
 }
 
