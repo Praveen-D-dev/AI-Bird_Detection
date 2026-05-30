@@ -8,20 +8,20 @@
 #include <WebSocketsClient.h> // Make sure to install WebSockets by Links2004
 
 // ================= WIFI CONFIG =================
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "POCO M6 Pro 5G";
+const char* password = "20061109.";
 
 // ================= SERVER CONFIG =================
 // Use the URL of your Node.js Express server (e.g., Render/Railway public URL or local IP)
 // For cloud: "https://your-express-app.onrender.com/detect"
 // For local testing: "http://192.168.1.50:5000/detect"
-const char* serverUrl = "http://192.168.1.50:5000/detect";
+const char* serverUrl = "https://bird-deterrent-node-backend.onrender.com/detect";
 
 // WebSocket config (extract domain/IP and port from your server URL)
 // For cloud: "your-express-app.onrender.com", 80 (or 443 for wss)
 // For local testing: "192.168.1.50", 5000
-const char* wsHost = "192.168.1.50";
-const int wsPort = 5000;
+const char* wsHost = "bird-deterrent-node-backend.onrender.com";
+const int wsPort = 80;
 const char* wsPath = "/";
 
 WebSocketsClient webSocket;
