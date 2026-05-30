@@ -1,5 +1,6 @@
 #include "esp_camera.h"
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h> // Make sure to install ArduinoJson library
 #include "soc/soc.h"
@@ -9,7 +10,7 @@
 
 // ================= WIFI CONFIG =================
 const char* ssid = "POCO M6 Pro 5G";
-const char* password = "20061109.";
+const char* password = "20061109";
 
 // ================= SERVER CONFIG =================
 // Use the URL of your Node.js Express server (e.g., Render/Railway public URL or local IP)
@@ -49,7 +50,7 @@ WebSocketsClient webSocket;
 #define PCLK_GPIO_NUM     22
 
 unsigned long lastCapture = 0;
-int interval = 5000; // Capture every 5 seconds
+int interval = 300000; // Capture every 5 minutes (300,000 milliseconds)
 
 // A lightweight web server to handle the GET /trigger request from the backend
 WebServer server(80);
@@ -172,10 +173,13 @@ void loop() {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
+        WiFiClientSecure client;
+        client.setInsecure(); // Bypass SSL verification since Render has valid certs but ESP32 lacks root CA
+
         HTTPClient http;
         Serial.println("Sending image to AI Backend...");
         
-        http.begin(serverUrl);
+        http.begin(client, serverUrl);
         String boundary = "--------------------------123456789";
         http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
 
@@ -184,34 +188,27 @@ void loop() {
         uint32_t totalLen = head.length() + fb->len + tail.length();
 
         // Send payload manually
-        WiFiClient *stream = http.getStreamPtr();
         http.sendRequest("POST", (uint8_t *)NULL, totalLen);
+        WiFiClient *stream = http.getStreamPtr();
         
-        stream->print(head);
-        stream->write(fb->buf, fb->len);
-        stream->print(tail);
-
-        int httpCode = http.GET(); // This gets the response code after the POST body was sent via sendRequest
-        
-        // Wait for response
-        long timeout = millis();
-        while(!stream->available() && millis() - timeout < 10000) {
-           delay(10);
-        }
-        
-        if (stream->available()) {
-            String payload = stream->readStringUntil('\n');
-            Serial.println("Server Response: " + payload);
+        if (stream) {
+            stream->print(head);
+            stream->write(fb->buf, fb->len);
+            stream->print(tail);
             
-            // Cloud-native direct trigger check based on the HTTP response payload
-            // This is required when backend is deployed online (as cloud cannot GET trigger private local IP)
-            DynamicJsonDocument doc(1024);
-            deserializeJson(doc, payload);
-            if (doc["event"] == "bird") {
-               Serial.println("Bird detected by backend response! Activating deterrent.");
-               playDeterrentSound(); 
+            // Wait for response
+            long timeout = millis();
+            while(!stream->available() && millis() - timeout < 10000) {
+               delay(10);
             }
+            if(stream->available()) {
+              String response = stream->readString();
+              Serial.println("Server response: " + response);
+            }
+        } else {
+            Serial.println("Connection failed (stream is null)");
         }
+        
         http.end();
     } else {
         Serial.println("WiFi Disconnected");
