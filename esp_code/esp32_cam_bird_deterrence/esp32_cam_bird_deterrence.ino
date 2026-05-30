@@ -56,17 +56,20 @@ int interval = 300000; // Capture every 5 minutes (300,000 milliseconds)
 WebServer server(80);
 
 void playDeterrentSound() {
-  Serial.println(">>> ACTIVATING DETERRENT SYSTEM (FIRECRACKER BURST) <<<");
+  Serial.println(">>> ACTIVATING DETERRENT SYSTEM (BOMB EXPLOSION) <<<");
   
-  // Simulate a machine gun / firecracker burst using randomized white noise frequencies
-  for (int burst = 0; burst < 6; burst++) { // 6 rapid shots
-    for (int i = 0; i < 15; i++) {
-      tone(SPEAKER_PIN, random(200, 2500)); // Random crackling frequency
-      delay(random(2, 8)); // Random short duration for noise effect
-    }
-    noTone(SPEAKER_PIN);
-    delay(random(60, 100)); // Pause between individual "shots"
+  // Bomb drop (descending whistle)
+  for (int freq = 3000; freq > 100; freq -= 15) {
+    tone(SPEAKER_PIN, freq);
+    delay(4);
   }
+  
+  // Explosion rumble (random low chaotic frequencies)
+  for (int i = 0; i < 150; i++) {
+    tone(SPEAKER_PIN, random(40, 250)); // Deep rumble frequencies
+    delay(random(3, 12));
+  }
+  
   noTone(SPEAKER_PIN);
 }
 
@@ -187,27 +190,30 @@ void loop() {
         String tail = "\r\n--" + boundary + "--\r\n";
         uint32_t totalLen = head.length() + fb->len + tail.length();
 
-        // Send payload manually
-        http.sendRequest("POST", (uint8_t *)NULL, totalLen);
-        WiFiClient *stream = http.getStreamPtr();
-        
-        if (stream) {
-            stream->print(head);
-            stream->write(fb->buf, fb->len);
-            stream->print(tail);
-            
-            // Wait for response
-            long timeout = millis();
-            while(!stream->available() && millis() - timeout < 10000) {
-               delay(10);
-            }
-            if(stream->available()) {
-              String response = stream->readString();
-              Serial.println("Server response: " + response);
-            }
-        } else {
-            Serial.println("Connection failed (stream is null)");
+        // Allocate memory to send the payload in one single block (prevents HTTP timeouts)
+        uint8_t *payload = (uint8_t *)malloc(totalLen);
+        if (!payload) {
+            Serial.println("Memory allocation failed for HTTP POST!");
+            esp_camera_fb_return(fb);
+            return;
         }
+
+        // Stitch the payload together
+        memcpy(payload, head.c_str(), head.length());
+        memcpy(payload + head.length(), fb->buf, fb->len);
+        memcpy(payload + head.length() + fb->len, tail.c_str(), tail.length());
+
+        // Send request
+        int httpCode = http.POST(payload, totalLen);
+        
+        if (httpCode > 0) {
+            String response = http.getString();
+            Serial.println("Server response (" + String(httpCode) + "): " + response);
+        } else {
+            Serial.println("HTTP POST failed, error: " + http.errorToString(httpCode));
+        }
+
+        free(payload);
         
         http.end();
     } else {
