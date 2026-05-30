@@ -22,7 +22,7 @@ const char* serverUrl = "https://bird-deterrent-node-backend.onrender.com/detect
 // For cloud: "your-express-app.onrender.com", 80 (or 443 for wss)
 // For local testing: "192.168.1.50", 5000
 const char* wsHost = "bird-deterrent-node-backend.onrender.com";
-const int wsPort = 80;
+const int wsPort = 443;
 const char* wsPath = "/";
 
 WebSocketsClient webSocket;
@@ -118,7 +118,7 @@ void setup() {
   Serial.println("Trigger server started.");
 
   // Start WebSocket client
-  webSocket.begin(wsHost, wsPort, wsPath);
+  webSocket.beginSSL(wsHost, wsPort, wsPath, "", "");
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
   Serial.println("WebSocket client started.");
