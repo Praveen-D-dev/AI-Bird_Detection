@@ -1,8 +1,13 @@
+import os
+
+# Force writable directories for cloud environments (Render Free Tier)
+os.environ['YOLO_CONFIG_DIR'] = '/tmp/Ultralytics'
+os.environ['MPLCONFIGDIR'] = '/tmp/matplotlib'
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import cv2
 import numpy as np
-import os
 import time
 import requests
 import threading
@@ -19,19 +24,10 @@ ESP32_IP = "192.168.1.100"
 # Path to model files (Check parent directory or current directory)
 YOLO_MODEL_PATH = '../yolov8n.pt' if os.path.exists('../yolov8n.pt') else 'yolov8n.pt'
 
-# Lazy loading variables to prevent port scan timeouts on Render
-yolo_model = None
-yolo_model_lock = threading.Lock()
+from ultralytics import YOLO
 
-def get_yolo_model():
-    global yolo_model
-    if yolo_model is None:
-        with yolo_model_lock:
-            if yolo_model is None:
-                from ultralytics import YOLO
-                print(f"Loading YOLO model from {YOLO_MODEL_PATH} (Lazy Loading)...")
-                yolo_model = YOLO(YOLO_MODEL_PATH)
-    return yolo_model
+print(f"Pre-loading YOLO model from {YOLO_MODEL_PATH} on startup...")
+yolo_model = YOLO(YOLO_MODEL_PATH)
 
 def to_base64(img):
     """Encodes OpenCV image array to base64 JPEG data URI in-memory"""
@@ -98,9 +94,9 @@ def detect_process():
         
         processed_b64 = to_base64(img_processed)
         
-        # 4. Model Inference (lazy loads the model on the first request)
+        # 4. Model Inference (Pre-loaded)
         start_time = time.time()
-        results = get_yolo_model()(img_processed, conf=yolo_conf)
+        results = yolo_model(img_processed, conf=yolo_conf)
         inference_time_ms = int((time.time() - start_time) * 1000)
         
         # 5. Drawing Bounding Boxes
