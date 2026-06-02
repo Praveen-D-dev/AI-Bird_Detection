@@ -115,6 +115,25 @@ void setup() {
   Serial.print("ESP32 IP Address: ");
   Serial.println(WiFi.localIP()); // This is the IP the backend needs for the GET /trigger request
 
+  // Auto-register IP with the Node.js backend
+  Serial.println("Registering IP with backend...");
+  WiFiClientSecure secureClient;
+  secureClient.setInsecure();
+  HTTPClient httpSettings;
+  String settingsUrl = String(serverUrl);
+  settingsUrl.replace("/detect", "/settings");
+  
+  httpSettings.begin(secureClient, settingsUrl);
+  httpSettings.addHeader("Content-Type", "application/json");
+  String settingsPayload = "{\"esp32_ip\":\"" + WiFi.localIP().toString() + "\"}";
+  int settingsHttpCode = httpSettings.POST(settingsPayload);
+  if(settingsHttpCode > 0) {
+      Serial.println("IP Registration Success. Server responded: " + httpSettings.getString());
+  } else {
+      Serial.println("IP Registration Failed. Error: " + httpSettings.errorToString(settingsHttpCode));
+  }
+  httpSettings.end();
+
   // Start the trigger listener
   server.on("/trigger", handleTrigger);
   server.begin();

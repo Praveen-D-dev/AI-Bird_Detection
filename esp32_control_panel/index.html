@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Control Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="background-animation"></div>
+    
+    <div class="container">
+        <header>
+            <i data-lucide="cpu" class="header-icon"></i>
+            <h1>ESP32 Control Panel</h1>
+            <p>Seamlessly control your camera and speaker</p>
+        </header>
+
+        <main>
+            <div class="settings-panel">
+                <label for="ipAddress">ESP32 IP Address</label>
+                <div class="input-group">
+                    <i data-lucide="network"></i>
+                    <input type="text" id="ipAddress" placeholder="e.g. 10.108.42.89" value="10.108.42.89">
+                </div>
+            </div>
+
+            <div class="image-viewer">
+                <div id="placeholder" class="placeholder">
+                    <i data-lucide="camera" class="placeholder-icon"></i>
+                    <span>No Image Captured</span>
+                </div>
+                <img id="cameraStream" class="hidden" alt="ESP32 Stream">
+                <div id="loader" class="loader hidden"></div>
+            </div>
+
+            <div class="controls">
+                <button id="btnCapture" class="btn primary">
+                    <i data-lucide="camera"></i>
+                    Capture Image
+                </button>
+                <button id="btnSave" class="btn secondary" disabled>
+                    <i data-lucide="download"></i>
+                    Save Image
+                </button>
+                <button id="btnSpeaker" class="btn warning">
+                    <i data-lucide="volume-2"></i>
+                    <span>Activate Speaker</span>
+                </button>
+            </div>
+            
+            <div id="notification" class="notification hidden">
+                Success
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

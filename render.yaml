@@ -21,7 +21,7 @@ services:
   # 2. Python YOLO AI Inference Microservice
   - type: web
     name: bird-deterrent-python-ai
-    env: python
+    env: docker
     plan: free # Note: Free tier has 512MB RAM. If loading YOLOv8m causes OOM, upgrade to 'starter' plan or use YOLOv8n.
     rootDir: backend
     buildCommand: pip install -r requirements.txt

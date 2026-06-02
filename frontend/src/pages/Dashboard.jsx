@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Spinner } from 'react-bootstrap';
 import { ShieldCheck, ShieldAlert, Bird, Activity, Clock } from 'lucide-react';
 import axios from 'axios';

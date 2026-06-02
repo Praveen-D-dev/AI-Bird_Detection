@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { Settings as SettingsIcon, Save, RefreshCw } from 'lucide-react';
 import axios from 'axios';
@@ -17,11 +17,6 @@ function Settings() {
   const [saving, setSaving] = useState(false);
   const [alert, setAlert] = useState({ show: false, variant: 'success', message: '' });
 
-  // Fetch current config on mount
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
   const fetchSettings = async () => {
     setLoading(true);
     try {
@@ -39,6 +34,12 @@ function Settings() {
       setLoading(false);
     }
   };
+
+  // Fetch current config on mount
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchSettings();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setConfig(prev => ({

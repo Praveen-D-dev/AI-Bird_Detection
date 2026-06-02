@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Navbar, Nav, Container } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
 import { Bird } from 'lucide-react';

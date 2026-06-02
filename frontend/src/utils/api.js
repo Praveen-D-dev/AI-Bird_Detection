@@ -8,7 +8,7 @@ export const getApiUrl = (path) => {
   const hostname = window.location.hostname;
   const protocol = window.location.protocol; // 'http:' or 'https:'
   
-  let base = '';
+  let base;
   
   if (import.meta.env.VITE_API_URL) {
     let envUrl = import.meta.env.VITE_API_URL.trim();

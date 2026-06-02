@@ -93,6 +93,10 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const upload = multer({ storage: multer.memoryStorage() });
 
 // MongoDB Connection
+if (!process.env.MONGODB_URI) {
+  console.error(`[${new Date().toISOString()}] [MongoDB] FATAL ERROR: MONGODB_URI is not defined in environment variables.`);
+  process.exit(1);
+}
 mongoose.connect(process.env.MONGODB_URI)
   .then(async () => {
     console.log(`[${new Date().toISOString()}] [MongoDB] Connected successfully to Atlas Cluster`);
@@ -160,7 +164,7 @@ app.post('/detect', upload.single('image'), async (req, res) => {
 
   try {
     // Fetch active parameters to pass to YOLO pipeline
-    const config = await Settings.findOne() || { yolo_conf_threshold: 0.25, trigger_confidence: 0.45 };
+    const config = await Settings.findOne() || { yolo_conf_threshold: 0.25, trigger_confidence: 0.45, esp32_ip: '192.168.1.100' };
 
     // Prepare FormData to forward to the Python AI service
     const form = new FormData();
