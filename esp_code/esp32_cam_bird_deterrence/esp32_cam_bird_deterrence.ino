@@ -56,21 +56,30 @@ int interval = 300000; // Capture every 5 minutes (300,000 milliseconds)
 WebServer server(80);
 
 void playDeterrentSound() {
-  Serial.println(">>> ACTIVATING DETERRENT SYSTEM (BOMB EXPLOSION) <<<");
+  Serial.println(">>> ACTIVATING DETERRENT SYSTEM (SIREN EFFECT) <<<");
   
-  // Bomb drop (descending whistle)
-  for (int freq = 3000; freq > 100; freq -= 15) {
-    tone(SPEAKER_PIN, freq);
-    delay(4);
+  // Setup LEDC channel 1 for the speaker (more reliable on ESP32 than standard tone())
+  int channel = 1; 
+  int resolution = 8;
+  ledcSetup(channel, 2000, resolution);
+  ledcAttachPin(SPEAKER_PIN, channel);
+  
+  // Play a siren effect for ~3 seconds
+  for (int i = 0; i < 3; i++) {
+      for (int f = 800; f < 2000; f += 20) {
+          ledcWriteTone(channel, f);
+          delay(5);
+      }
+      for (int f = 2000; f > 800; f -= 20) {
+          ledcWriteTone(channel, f);
+          delay(5);
+      }
   }
   
-  // Explosion rumble (random low chaotic frequencies)
-  for (int i = 0; i < 150; i++) {
-    tone(SPEAKER_PIN, random(40, 250)); // Deep rumble frequencies
-    delay(random(3, 12));
-  }
-  
-  noTone(SPEAKER_PIN);
+  // Turn off speaker
+  ledcWriteTone(channel, 0);
+  ledcDetachPin(SPEAKER_PIN);
+  digitalWrite(SPEAKER_PIN, LOW);
 }
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
@@ -120,6 +129,7 @@ void setup() {
   WiFiClientSecure secureClient;
   secureClient.setInsecure();
   HTTPClient httpSettings;
+  httpSettings.setTimeout(180000); // 3 minutes timeout to let Render wake up on boot
   String settingsUrl = String(serverUrl);
   settingsUrl.replace("/detect", "/settings");
   
@@ -199,6 +209,7 @@ void loop() {
         client.setInsecure(); // Bypass SSL verification since Render has valid certs but ESP32 lacks root CA
 
         HTTPClient http;
+        http.setTimeout(180000); // Wait up to 3 minutes for cloud processing
         Serial.println("Sending image to AI Backend...");
         
         http.begin(client, serverUrl);
@@ -228,6 +239,12 @@ void loop() {
         if (httpCode > 0) {
             String response = http.getString();
             Serial.println("Server response (" + String(httpCode) + "): " + response);
+            
+            // Check if backend told us to trigger the alarm
+            if (response.indexOf("\"trigger_alarm\":true") > 0 || response.indexOf("\"trigger_alarm\": true") > 0) {
+                Serial.println(">>> Backend authorized alarm trigger directly from HTTP response! <<<");
+                playDeterrentSound();
+            }
         } else {
             Serial.println("HTTP POST failed, error: " + http.errorToString(httpCode));
         }

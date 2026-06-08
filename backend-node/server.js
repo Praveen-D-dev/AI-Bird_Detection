@@ -198,6 +198,12 @@ app.post('/detect', upload.single('image'), async (req, res) => {
     let procImgData = result.processed_base64;
     let detImgData = result.detected_base64;
 
+    // Smart Saving Optimization: Discard processed and detected frames if no bird is detected
+    if (result.event !== 'bird') {
+      procImgData = null;
+      detImgData = null;
+    }
+
     if (process.env.CLOUDINARY_URL) {
       console.log(`[${new Date().toISOString()}] [Cloudinary] Uploading processed frames to cloud...`);
       try {
@@ -231,7 +237,8 @@ app.post('/detect', upload.single('image'), async (req, res) => {
     console.log(`[${new Date().toISOString()}] [AI Pipeline] Event saved to MongoDB. Status: ${result.status} | Inference: ${result.inference_time_ms}ms`);
 
     // Check trigger threshold and activate deterrent if needed
-    if (result.event === 'bird' && result.confidence >= config.trigger_confidence) {
+    const shouldTrigger = (result.event === 'bird' && result.confidence >= config.trigger_confidence);
+    if (shouldTrigger) {
       triggerDeterrent(config.esp32_ip, config.trigger_confidence, result.confidence);
     }
 
@@ -248,7 +255,8 @@ app.post('/detect', upload.single('image'), async (req, res) => {
       bird_count: result.bird_count,
       confidence: result.confidence,
       status: result.status,
-      inference_time_ms: result.inference_time_ms
+      inference_time_ms: result.inference_time_ms,
+      trigger_alarm: shouldTrigger
     });
 
   } catch (error) {
