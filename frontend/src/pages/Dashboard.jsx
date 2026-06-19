@@ -75,7 +75,7 @@ function Dashboard() {
               </div>
               <Card.Title className="text-uppercase text-muted" style={{ fontSize: '0.9rem' }}>Inference Latency</Card.Title>
               <h3 className="mb-0 mt-2 fw-bold" style={{ color: '#00d2ff' }}>
-                {status.inference_time_ms !== undefined ? `${status.inference_time_ms/1000} s` : '0 s'}
+                {status.inference_time_ms !== undefined ? `${(status.inference_time_ms/1000).toFixed(2)} s` : '0 s'}
               </h3>
             </Card.Body>
           </Card>
